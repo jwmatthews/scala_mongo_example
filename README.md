@@ -16,6 +16,7 @@ Sample code for interacting with Mongo from Scala, covers usage of Casbah and Sa
  sbt is able to generate an Intelli-J project, a plugin is required.
 
 1) Install the plugin
+
     $ cat ~/.sbt/plugins/build.sbt 
 
     resolvers += "Sonatype snapshots" at "http://oss.sonatype.org/content/repositories/snapshots/"
