@@ -7,19 +7,70 @@ class CasbahSuite extends FunSuite with BeforeAndAfterEach {
   val port = 27017
   val dbName = "scala_mongo_example"
   val collName = "widgets"
-  val mongoConn = MongoConnection(hostname, port)
-  val mongoDB = mongoConn(dbName)
+  var mongoConn: MongoConnection = null
+  var mongoDB: MongoDB = null
+  var mongoColl: MongoCollection = null
 
   override def beforeEach() {
-    mongoDB(collName).dropCollection()
+    mongoConn = MongoConnection(hostname, port)
+    mongoConn.dropDatabase(dbName)
+    mongoDB = mongoConn(dbName)
+    mongoColl = mongoDB(collName)
   }
 
   override def afterEach() {
-    mongoDB(collName).dropCollection()
+    mongoConn.dropDatabase(dbName)
+    mongoConn.close()
+  }
+
+  test("unique index prevents duplicates") {
+    // Add the unique index to the collection
+    val index = MongoDBObject("id" -> 1)
+    val options = MongoDBObject("unique" -> true)
+    mongoColl.ensureIndex(index, options)
+
+    val builder1 = MongoDBObject.newBuilder
+    builder1 += "id" -> 1
+    builder1 += "name" -> "item1"
+    val item1 = builder1.result().asDBObject
+    mongoColl += item1
+    assert(mongoColl.find().count === 1)
+
+    val builder2 = MongoDBObject.newBuilder
+    builder2 += "id" -> 2
+    builder2 += "name" -> "item2"
+    val item2 = builder2.result().asDBObject
+    mongoColl += item2
+    assert(mongoColl.find().count === 2)
+
+    // This should be a duplicate since it shares same "id" as 'item2'
+    val item3 = MongoDBObject("id" -> 2, "name" -> "item2a")
+
+    // Safe version throws an exception
+    intercept[MongoException]{
+      mongoColl.save(item3, WriteConcern.Safe)
+    }
+    assert(mongoColl.find().count === 2)
+
+    // Default won't save the object, yet no exception is thrown
+    mongoColl += item3
+    assert(mongoColl.find().count === 2)
+
+    // Verify that the object with "id"->2 matches item2
+
+    // Approach #1 using a map on the Option
+    val found = mongoColl.findOne(MongoDBObject("id"->2))
+    assert(found != None)
+    found.map( item => assert(item.getAs[String]("name") === item2.getAs[String]("name")))
+
+    // Approach #2 using a pattern match
+    mongoColl.findOne(MongoDBObject("id"->2)) match {
+      case None => assert(false == true)
+      case Some(item) => assert(item.getAs[String]("name") === item2.getAs[String]("name"))
+    }
   }
 
   test("simple write then read of an object") {
-    val mongoColl = mongoDB(collName)
     assert(mongoColl.find().count === 0)
     val newObj = MongoDBObject(
       "foo" -> "bar",
