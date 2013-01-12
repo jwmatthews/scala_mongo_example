@@ -1,26 +1,24 @@
 import com.mongodb.casbah.Imports._
-import org.scalatest.{FunSuite, BeforeAndAfterEach}
+import org.scalatest.{FunSuite, BeforeAndAfterAll, BeforeAndAfterEach}
 
-class CasbahSuite extends FunSuite with BeforeAndAfterEach {
+class CasbahSuite extends FunSuite with BeforeAndAfterEach with BeforeAndAfterAll {
   val hostname = "127.0.0.1"
   val port = 27017
-  val dbName = "scala_mongo_example"
+  val dbName = "scala_mongo_example_casbahsuite"
   val collName = "widgets"
   var mongoConn: MongoConnection = null
   var mongoDB: MongoDB = null
   var mongoColl: MongoCollection = null
 
-  override def beforeEach() {
+  override def beforeAll() {
     mongoConn = MongoConnection(hostname, port)
-    mongoConn.dropDatabase(dbName)
     mongoDB = mongoConn(dbName)
-    mongoColl = mongoDB(collName)
-    mongoConn.setWriteConcern(WriteConcern.FsyncSafe)
   }
 
-  override def afterEach() {
-    mongoConn.dropDatabase(dbName)
-    mongoConn.close()
+  override def beforeEach() {
+    mongoColl = mongoDB(collName)
+    mongoColl.drop()
+    mongoConn.setWriteConcern(WriteConcern.Safe)
   }
 
   test("unique index prevents duplicates") {
@@ -56,7 +54,7 @@ class CasbahSuite extends FunSuite with BeforeAndAfterEach {
     mongoConn.setWriteConcern(WriteConcern.None)
     mongoColl += item3
     assert(mongoColl.find().count === 2)
-    mongoConn.setWriteConcern(WriteConcern.FsyncSafe)
+    mongoConn.setWriteConcern(WriteConcern.Safe)
 
     // Verify that the object with "id"->2 matches item2
 
