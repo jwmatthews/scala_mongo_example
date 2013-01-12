@@ -1,7 +1,6 @@
 import com.mongodb.casbah.Imports._
 import org.scalatest.{FunSuite, BeforeAndAfterEach}
 
-
 class CasbahSuite extends FunSuite with BeforeAndAfterEach {
   val hostname = "127.0.0.1"
   val port = 27017
@@ -16,6 +15,7 @@ class CasbahSuite extends FunSuite with BeforeAndAfterEach {
     mongoConn.dropDatabase(dbName)
     mongoDB = mongoConn(dbName)
     mongoColl = mongoDB(collName)
+    mongoConn.setWriteConcern(WriteConcern.FsyncSafe)
   }
 
   override def afterEach() {
@@ -48,13 +48,15 @@ class CasbahSuite extends FunSuite with BeforeAndAfterEach {
 
     // Safe version throws an exception
     intercept[MongoException]{
-      mongoColl.save(item3, WriteConcern.Safe)
+      mongoColl += item3
     }
     assert(mongoColl.find().count === 2)
 
-    // Default won't save the object, yet no exception is thrown
+    // Default save won't save the object, yet no exception is thrown
+    mongoConn.setWriteConcern(WriteConcern.None)
     mongoColl += item3
     assert(mongoColl.find().count === 2)
+    mongoConn.setWriteConcern(WriteConcern.FsyncSafe)
 
     // Verify that the object with "id"->2 matches item2
 
